@@ -36,6 +36,7 @@ function preload() {
   this.load.image("background", "assets/background.png");
   this.load.image("frog", "assets/padde.png");
   this.load.image("boot", "assets/foot2.png");
+  this.load.image("dangermeter", "assets/dangermeter.png");
 }
 
 function create() {
@@ -49,7 +50,7 @@ function create() {
   var bg = this.add.image(0, 0, "background").setOrigin(0, 0);
   bg.setScale(800 / bg.width, 600 / bg.height); // Scale background to screen
 
-  this.frog = this.add.sprite(400, 600 * 0.8, "frog").setScale(0.2); // Set scale and position
+  this.frog = this.add.sprite(400, 600 * 0.85, "frog").setScale(0.2); // Set scale and position
   this.boot = this.add.sprite(400, 100, "boot").setScale(1.2); // Set scale
 
   // Backdrop for the text
@@ -57,9 +58,10 @@ function create() {
   graphics.fillStyle(0x000000, 0.7); // Black, with half opacity
   graphics.fillRect(0, 0, 200, 70); // Adjust size and position as needed
 
-  // Load and add the "dangermeter" image
-  this.load.image("dangermeter", "assets/dangermeter.png"); // Make sure the path is correct
-  this.dangerMeterSprite = this.add.sprite(650, 50, "dangermeter"); // Adjust position as needed
+  // Add the "dangermeter" image to the scene
+  this.dangerMeterSprite = this.add
+    .sprite(100, 130, "dangermeter")
+    .setScale(0.3);
 
   // Create text for the level and timer on top of the backdrop
   levelText = this.add.text(10, 10, "Level: " + level, {
@@ -76,7 +78,7 @@ function create() {
 }
 
 function update() {
-  const stopHeight = 550; // Height at which the boot stops
+  const stopHeight = 540; // Height at which the boot stops
 
   // Update timer every second
   if (Math.floor(this.time.now / 1000) > timer) {
@@ -148,6 +150,5 @@ function update() {
     this.frog.setScale(0.2, 0.2); // Normal sprite when moving right
   }
 
-  this.frog.y = 600 * 0.9; //keep the frog at the same position.
   this.frog.x = Phaser.Math.Clamp(this.frog.x, 0, 800); // collision at end of screen.
 }
