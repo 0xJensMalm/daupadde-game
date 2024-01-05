@@ -7,6 +7,7 @@ class MainScene extends Phaser.Scene {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
     this.load.image("boot", "assets/rFoot.png");
+    this.load.image("boot2", "assets/stFoot.png");
     this.load.image("dangermeter", "assets/dangermeter.png");
   }
 
@@ -94,7 +95,15 @@ class MainScene extends Phaser.Scene {
     this.retractingBoot = false;
     this.boot.y = -100;
     this.boot.x = Phaser.Math.Between(100, 700);
-    this.boot.setScale(0.2);
+
+    // Randomly select one of the two foot images
+    const bootImageKey = Phaser.Math.RND.pick(["boot", "boot2"]);
+    this.boot.setTexture(bootImageKey);
+
+    // Randomly flip the boot image horizontally
+    const flipX = Phaser.Math.RND.pick([-1, 1]);
+    this.boot.setScale(flipX * 0.2, 0.2);
+
     this.currentBootSpeed = this.bootStompSpeed;
   }
 
