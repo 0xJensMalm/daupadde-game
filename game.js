@@ -12,8 +12,8 @@ class MainScene extends Phaser.Scene {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
     this.load.image("boot", "assets/stFoot.png");
-    this.load.image("toggleOn", "assets/onSwitch.png");
-    this.load.image("toggleOff", "assets/offSwitch.png");
+    this.load.image("toggleOn", "assets/radioOn.png");
+    this.load.image("toggleOff", "assets/radioOff.png");
   }
 
   create() {
