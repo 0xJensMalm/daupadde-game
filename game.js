@@ -1,6 +1,9 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super({ key: "MainScene" });
+    // Hitbox sizes
+    this.bootHitboxSizePercent = { width: 50, height: 100 }; // Adjust as needed
+    this.frogHitboxSizePercent = { width: 100, height: 100 }; // Adjust as needed
   }
 
   preload() {
@@ -27,9 +30,22 @@ class MainScene extends Phaser.Scene {
 
     // Enable physics for the boot and create a smaller active area for collision
     this.physics.add.existing(this.boot);
+    this.physics.add.existing(this.frog);
+
     // Adjust the width and height to fit the active collision area of the boot
     this.boot.body.setSize(100, 300); // Example values, adjust as needed
     this.boot.body.setOffset(250, 2000); // Adjust the offset as needed
+
+    // Hitboxes
+    this.setupHitboxes();
+    this.hitboxGraphics = this.add.graphics(); //hitbox toggles
+    this.showHitboxes = true; // Default value
+    this.hitboxToggleText = this.add
+      .text(10, 70, "Toggle Hitboxes", { font: "16px Arial", fill: "#00ff00" })
+      .setInteractive()
+      .on("pointerdown", () => {
+        this.showHitboxes = !this.showHitboxes;
+      });
 
     this.levelText = this.add.text(10, 10, "Level: " + this.level, {
       font: "20px Arial",
@@ -47,6 +63,7 @@ class MainScene extends Phaser.Scene {
     this.updateTimer(time);
     this.handleBootMovement();
     this.handlePlayerMovement();
+    this.updateHitboxFrames();
   }
 
   updateTimer(time) {
@@ -66,6 +83,26 @@ class MainScene extends Phaser.Scene {
       this.level = "Level 2";
     }
     this.levelText.setText("Level: " + this.level);
+  }
+  updateHitboxFrames() {
+    this.hitboxGraphics.clear();
+    this.drawHitboxFrame(this.boot, 0x00ff00); // Green for boot
+    this.drawHitboxFrame(this.frog, 0x00ff00); // Green for frog
+  }
+
+  drawHitboxFrame(sprite, color) {
+    if (!this.showHitboxes) {
+      this.hitboxGraphics.clear();
+      return;
+    }
+    const hitbox = sprite.body;
+    this.hitboxGraphics.lineStyle(2, color, 1);
+    this.hitboxGraphics.strokeRect(
+      sprite.x - hitbox.width / 2,
+      sprite.y - hitbox.height / 2,
+      hitbox.width,
+      hitbox.height
+    );
   }
 
   handleBootMovement() {
@@ -116,6 +153,24 @@ class MainScene extends Phaser.Scene {
       this.frog.setScale(0.2, 0.2);
     }
     this.frog.x = Phaser.Math.Clamp(this.frog.x, 0, 800);
+  }
+
+  setupHitboxes() {
+    // Boot hitbox setup
+    let bootHitboxWidth =
+      (this.boot.width * this.bootHitboxSizePercent.width) / 100;
+    let bootHitboxHeight =
+      (this.boot.height * this.bootHitboxSizePercent.height) / 100;
+    this.boot.body.setSize(bootHitboxWidth, bootHitboxHeight);
+    // Adjust offset if needed
+
+    // Frog hitbox setup
+    let frogHitboxWidth =
+      (this.frog.width * this.frogHitboxSizePercent.width) / 100;
+    let frogHitboxHeight =
+      (this.frog.height * this.frogHitboxSizePercent.height) / 100;
+    this.frog.body.setSize(frogHitboxWidth, frogHitboxHeight);
+    // Adjust offset if needed
   }
 }
 
