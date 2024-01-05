@@ -1,18 +1,116 @@
-// Global constants:
-var timer = 0; // Timer to track survival time
-var level = "Warmup"; // Current level
-var levelText; // Text object for displaying the level
-var timerText; // Text object for displaying the timer
+class MainScene extends Phaser.Scene {
+  constructor() {
+    super({ key: "MainScene" });
+  }
 
-var bootStompSpeed = 1; // Initial speed of the boot moving down
-var bootRetractSpeed = 10; // Speed of the boot retracting up
-var AccelerationRate = 0.15; // Rate at which the boot's speed increases
-var currentBootSpeed = bootStompSpeed; // Current speed of the boot
+  preload() {
+    this.load.image("background", "assets/background.png");
+    this.load.image("frog", "assets/padde.png");
+    this.load.image("boot", "assets/rFoot.png");
+    this.load.image("dangermeter", "assets/dangermeter.png");
+  }
 
-var shakeDuration = 0;
-var shakeIntensity = 5;
+  create() {
+    this.timer = 0;
+    this.level = "Warmup";
+    this.bootStompSpeed = 1;
+    this.bootRetractSpeed = 10;
+    this.accelerationRate = 0.15;
+    this.currentBootSpeed = this.bootStompSpeed;
+    this.bootPause = false;
+    this.retractingBoot = false;
 
-var config = {
+    this.add.image(400, 300, "background");
+    this.frog = this.add.sprite(400, 600 * 0.85, "frog").setScale(0.2);
+    this.boot = this.add.sprite(400, 100, "boot").setScale(0.2);
+
+    // Enable physics for the boot and create a smaller active area for collision
+    this.physics.add.existing(this.boot);
+    // Adjust the width and height to fit the active collision area of the boot
+    this.boot.body.setSize(100, 300); // Example values, adjust as needed
+    this.boot.body.setOffset(250, 2000); // Adjust the offset as needed
+
+    this.levelText = this.add.text(10, 10, "Level: " + this.level, {
+      font: "20px Arial",
+      fill: "#ffffff",
+    });
+    this.timerText = this.add.text(10, 40, "Time: " + this.timer, {
+      font: "20px Arial",
+      fill: "#ffffff",
+    });
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+  }
+
+  update(time, delta) {
+    this.updateTimer(time);
+    this.handleBootMovement();
+    this.handlePlayerMovement();
+  }
+
+  updateTimer(time) {
+    if (Math.floor(time / 1000) > this.timer) {
+      this.timer = Math.floor(time / 1000);
+      this.timerText.setText("Time: " + this.timer);
+      this.updateLevel();
+    }
+  }
+
+  updateLevel() {
+    if (this.timer < 20) {
+      this.level = "Warmup";
+    } else if (this.timer < 60) {
+      this.level = "Level 1";
+    } else if (this.timer < 90) {
+      this.level = "Level 2";
+    }
+    this.levelText.setText("Level: " + this.level);
+  }
+
+  handleBootMovement() {
+    const stopHeight = 600; // Point for the bottom of the boot to reach
+
+    if (!this.bootPause && !this.retractingBoot) {
+      this.boot.y += this.currentBootSpeed;
+      this.currentBootSpeed += this.accelerationRate;
+
+      // Check if the bottom of the boot has reached the stopHeight
+      if (this.boot.y + this.boot.displayHeight / 2 >= stopHeight) {
+        this.bootPause = true;
+        this.time.delayedCall(1000, () => {
+          this.retractingBoot = true;
+          this.bootPause = false;
+        });
+      }
+    } else if (this.retractingBoot) {
+      this.boot.y -= this.bootRetractSpeed;
+      if (this.boot.y <= -this.boot.displayHeight / 2) {
+        this.resetBoot();
+      }
+    }
+  }
+
+  resetBoot() {
+    this.retractingBoot = false;
+    this.boot.y = -100;
+    this.boot.x = Phaser.Math.Between(100, 700);
+    this.boot.setScale(0.2);
+    this.currentBootSpeed = this.bootStompSpeed;
+  }
+
+  handlePlayerMovement() {
+    if (this.cursors.left.isDown) {
+      this.frog.x -= 5;
+      this.frog.setScale(-0.2, 0.2);
+    } else if (this.cursors.right.isDown) {
+      this.frog.x += 5;
+      this.frog.setScale(0.2, 0.2);
+    }
+    this.frog.x = Phaser.Math.Clamp(this.frog.x, 0, 800);
+  }
+}
+
+const config = {
   type: Phaser.AUTO,
   width: 800,
   height: 600,
@@ -23,132 +121,7 @@ var config = {
       debug: false,
     },
   },
-  scene: {
-    preload: preload,
-    create: create,
-    update: update,
-  },
+  scene: [MainScene],
 };
 
-var game = new Phaser.Game(config);
-
-function preload() {
-  this.load.image("background", "assets/background.png");
-  this.load.image("frog", "assets/padde.png");
-  this.load.image("boot", "assets/foot2.png");
-  this.load.image("dangermeter", "assets/dangermeter.png");
-}
-
-function create() {
-  // Constants
-
-  this.bootPause = false; // Initialize the pause flag
-  this.retractingBoot = false; // Flag to indicate if the boot is retracting
-
-  // Image assets
-  this.add.image(400, 300, "background");
-  var bg = this.add.image(0, 0, "background").setOrigin(0, 0);
-  bg.setScale(800 / bg.width, 600 / bg.height); // Scale background to screen
-
-  this.frog = this.add.sprite(400, 600 * 0.85, "frog").setScale(0.2); // Set scale and position
-  this.boot = this.add.sprite(400, 100, "boot").setScale(1.2); // Set scale
-
-  // Backdrop for the text
-  var graphics = this.add.graphics();
-  graphics.fillStyle(0x000000, 0.7); // Black, with half opacity
-  graphics.fillRect(0, 0, 200, 70); // Adjust size and position as needed
-
-  // Add the "dangermeter" image to the scene
-  this.dangerMeterSprite = this.add
-    .sprite(100, 130, "dangermeter")
-    .setScale(0.3);
-
-  // Create text for the level and timer on top of the backdrop
-  levelText = this.add.text(10, 10, "Level: " + level, {
-    font: "20px Arial",
-    fill: "#ffffff", // White text for contrast
-  });
-  timerText = this.add.text(10, 40, "Time: " + timer, {
-    font: "20px Arial",
-    fill: "#ffffff",
-  });
-
-  // Keyboard listener
-  this.cursors = this.input.keyboard.createCursorKeys();
-}
-
-function update() {
-  const stopHeight = 540; // Height at which the boot stops
-
-  // Update timer every second
-  if (Math.floor(this.time.now / 1000) > timer) {
-    timer = Math.floor(this.time.now / 1000);
-    timerText.setText("Time: " + timer);
-
-    // Update level based on the timer
-    if (timer < 20) {
-      level = "Warmup";
-    } else if (timer < 60) {
-      level = "Level 1";
-      // You can adjust bootStompSpeed, bootRetractSpeed, etc., here for each level
-    } else if (timer < 90) {
-      level = "Level 2";
-      // Adjust game mechanics for level 2
-    } // Add more levels as needed
-    levelText.setText("Level: " + level);
-  }
-
-  // Boot's downward movement
-  if (!this.bootPause && !this.retractingBoot) {
-    this.boot.y += currentBootSpeed; // Move boot down
-    currentBootSpeed += AccelerationRate; // Accelerate the boot
-  }
-
-  // Boot's upward movement (retracting)
-  else if (this.retractingBoot) {
-    this.boot.y -= bootRetractSpeed; // Move boot up
-    // Check if boot is off the screen
-    if (this.boot.y <= -this.boot.height / 2) {
-      this.retractingBoot = false;
-      this.boot.y = -this.boot.height / 2;
-      // Randomize boot's x-coordinate and orientation
-      this.boot.x = Math.random() * 800;
-      this.boot.setScale(Math.random() < 0.5 ? -1.2 : 1.2, 1.2);
-
-      currentBootSpeed = bootStompSpeed; // Reset the boot speed
-    }
-  }
-  // Checking if the boot reaches the stop height
-  if (
-    this.boot.y + this.boot.height / 2 >= stopHeight &&
-    !this.bootPause &&
-    !this.retractingBoot
-  ) {
-    this.bootPause = true;
-    // Trigger the shake effect
-    shakeDuration = 20;
-    // Pause for 1 second, then start retracting
-    this.time.delayedCall(1000, () => {
-      this.retractingBoot = true;
-      this.bootPause = false;
-      shakeDuration = 0; // Reset shake duration
-    });
-  }
-
-  // Shake effect when the boot hits the ground
-  if (shakeDuration > 0) {
-    this.boot.x += (Math.random() - 0.5) * shakeIntensity;
-    shakeDuration -= 1;
-  }
-
-  // Left/right keyboard movement
-  if (this.cursors.left.isDown) {
-    this.frog.x -= 5;
-    this.frog.setScale(-0.2, 0.2); // Flip sprite horizontally when moving left
-  } else if (this.cursors.right.isDown) {
-    this.frog.x += 5;
-    this.frog.setScale(0.2, 0.2); // Normal sprite when moving right
-  }
-
-  this.frog.x = Phaser.Math.Clamp(this.frog.x, 0, 800); // collision at end of screen.
-}
+const game = new Phaser.Game(config);
