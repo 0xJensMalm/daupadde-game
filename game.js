@@ -2,16 +2,17 @@ class MainScene extends Phaser.Scene {
   constructor() {
     super({ key: "MainScene" });
     // Hitbox sizes
-    this.bootHitboxSizePercent = { width: 50, height: 100 }; // Adjust as needed
-    this.frogHitboxSizePercent = { width: 100, height: 100 }; // Adjust as needed
+    this.bootHitboxSizePercent = { width: 50, height: 100 };
+    this.frogHitboxSizePercent = { width: 100, height: 100 };
+    this.showHitboxes = true; // Default value for showing hitboxes
   }
 
   preload() {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
-    this.load.image("boot", "assets/rFoot.png");
-    this.load.image("boot2", "assets/stFoot.png");
-    this.load.image("dangermeter", "assets/dangermeter.png");
+    this.load.image("boot", "assets/stFoot.png");
+    this.load.image("toggleOn", "assets/onSwitch.png");
+    this.load.image("toggleOff", "assets/offSwitch.png");
   }
 
   create() {
@@ -26,7 +27,13 @@ class MainScene extends Phaser.Scene {
 
     this.add.image(400, 300, "background");
     this.frog = this.add.sprite(400, 600 * 0.85, "frog").setScale(0.2);
+
+    // Boot sprite setup
     this.boot = this.add.sprite(400, 100, "boot").setScale(0.2);
+    this.physics.add.existing(this.boot);
+    this.bootHitboxWidth = (601 * this.bootHitboxSizePercent.width) / 100;
+    this.bootHitboxHeight = (2333 * this.bootHitboxSizePercent.height) / 100;
+    this.boot.body.setSize(this.bootHitboxWidth, this.bootHitboxHeight);
 
     // Enable physics for the boot and create a smaller active area for collision
     this.physics.add.existing(this.boot);
@@ -40,20 +47,66 @@ class MainScene extends Phaser.Scene {
     this.setupHitboxes();
     this.hitboxGraphics = this.add.graphics(); //hitbox toggles
     this.showHitboxes = true; // Default value
-    this.hitboxToggleText = this.add
-      .text(10, 70, "Toggle Hitboxes", { font: "16px Arial", fill: "#00ff00" })
-      .setInteractive()
-      .on("pointerdown", () => {
-        this.showHitboxes = !this.showHitboxes;
-      });
 
-    this.levelText = this.add.text(10, 10, "Level: " + this.level, {
-      font: "20px Arial",
-      fill: "#ffffff",
-    });
-    this.timerText = this.add.text(10, 40, "Time: " + this.timer, {
-      font: "20px Arial",
-      fill: "#ffffff",
+    // Graphics for text background
+    this.infoGraphics = this.add.graphics();
+    this.infoGraphics.fillStyle(0x000000, 0.7); // Black with opacity
+    this.infoGraphics.fillRect(5, 5, 190, 90); // Adjust size and position as needed
+    this.infoGraphics.lineStyle(1, 0xffffff, 1); // White thin line for border
+    this.infoGraphics.strokeRect(5, 5, 190, 90); // Adjust size and position as needed
+
+    // Style for the info text
+    const infoTextStyle = {
+      font: "14px Courier",
+      fill: "#FFFFFF", // White text color
+    };
+
+    // Level and Timer text
+    this.levelText = this.add.text(
+      10,
+      10,
+      "Level: " + this.level,
+      infoTextStyle
+    );
+    this.timerText = this.add.text(
+      10,
+      30,
+      "Time: " + this.timer,
+      infoTextStyle
+    );
+
+    // Toggle hitboxes text
+    this.hitboxToggleText = this.add.text(
+      10,
+      60,
+      "Show hitboxes:",
+      infoTextStyle
+    );
+
+    // Scale for the toggle switch
+    const toggleScale = 0.1; // Adjust the scale as needed
+
+    // Create a container to hold the toggle and make it interactive
+    this.toggleContainer = this.add.container(170, 65); // Adjust for the position of the toggle
+
+    // Add the 'off' toggle image by default and scale it
+    this.toggleSwitch = this.add.image(0, 0, "toggleOff").setScale(toggleScale);
+    this.toggleContainer.add(this.toggleSwitch);
+
+    // Adjust the size of the container for interactions based on the scaled image size
+    this.toggleContainer.setSize(
+      this.toggleSwitch.displayWidth,
+      this.toggleSwitch.displayHeight
+    );
+    this.toggleContainer.setInteractive().on("pointerdown", () => {
+      this.showHitboxes = !this.showHitboxes;
+      this.toggleSwitch.setTexture(
+        this.showHitboxes ? "toggleOn" : "toggleOff"
+      );
+      // Clear the hitbox graphics if they should be hidden
+      if (!this.showHitboxes) {
+        this.hitboxGraphics.clear();
+      }
     });
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -86,20 +139,19 @@ class MainScene extends Phaser.Scene {
   }
   updateHitboxFrames() {
     this.hitboxGraphics.clear();
-    this.drawHitboxFrame(this.boot, 0x00ff00); // Green for boot
-    this.drawHitboxFrame(this.frog, 0x00ff00); // Green for frog
+    // Only draw hitboxes if showHitboxes is true
+    if (this.showHitboxes) {
+      this.drawHitboxFrame(this.boot, 0x00ff00);
+      this.drawHitboxFrame(this.frog, 0x00ff00);
+    }
   }
 
   drawHitboxFrame(sprite, color) {
-    if (!this.showHitboxes) {
-      this.hitboxGraphics.clear();
-      return;
-    }
     const hitbox = sprite.body;
     this.hitboxGraphics.lineStyle(2, color, 1);
     this.hitboxGraphics.strokeRect(
-      sprite.x - hitbox.width / 2,
-      sprite.y - hitbox.height / 2,
+      sprite.x - sprite.originX * hitbox.width,
+      sprite.y - sprite.originY * hitbox.height,
       hitbox.width,
       hitbox.height
     );
@@ -132,16 +184,24 @@ class MainScene extends Phaser.Scene {
     this.retractingBoot = false;
     this.boot.y = -100;
     this.boot.x = Phaser.Math.Between(100, 700);
-
-    // Randomly select one of the two foot images
-    const bootImageKey = Phaser.Math.RND.pick(["boot", "boot2"]);
-    this.boot.setTexture(bootImageKey);
-
-    // Randomly flip the boot image horizontally
-    const flipX = Phaser.Math.RND.pick([-1, 1]);
-    this.boot.setScale(flipX * 0.2, 0.2);
-
     this.currentBootSpeed = this.bootStompSpeed;
+  }
+
+  updateBootHitbox() {
+    // Calculate the new hitbox size based on the sprite's display size (which includes scaling)
+    let bootHitboxWidth =
+      (this.boot.displayWidth * this.bootHitboxSizePercent.width) / 100;
+    let bootHitboxHeight =
+      (this.boot.displayHeight * this.bootHitboxSizePercent.height) / 100;
+
+    // Update the boot's hitbox size
+    this.boot.body.setSize(bootHitboxWidth, bootHitboxHeight);
+
+    // Calculate and set the new offset from the center of the sprite
+    // This assumes the sprite's origin is set to 0.5 (center)
+    let offsetX = (this.boot.width - bootHitboxWidth) / 2;
+    let offsetY = (this.boot.height - bootHitboxHeight) / 2;
+    this.boot.body.setOffset(offsetX, offsetY);
   }
 
   handlePlayerMovement() {
