@@ -2,9 +2,10 @@ class MainScene extends Phaser.Scene {
   constructor() {
     super({ key: "MainScene" });
     // Hitbox sizes
-    this.bootHitboxSizePercent = { width: 50, height: 100 };
-    this.frogHitboxSizePercent = { width: 100, height: 100 };
-    this.showHitboxes = true; // Default value for showing hitboxes
+    this.bootHitboxSizePercent = { width: 80, height: 101 };
+    this.frogHitboxSizePercent = { width: 94, height: 90 };
+    this.showHitboxes = true; // Toggle hitboxes
+    this.isPaused = false; // Toggle pause
   }
 
   preload() {
@@ -110,6 +111,11 @@ class MainScene extends Phaser.Scene {
     });
 
     this.cursors = this.input.keyboard.createCursorKeys();
+
+    // Create a Key object for the spacebar
+    this.spacebar = this.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SPACE
+    );
   }
 
   update(time, delta) {
@@ -117,6 +123,13 @@ class MainScene extends Phaser.Scene {
     this.handleBootMovement();
     this.handlePlayerMovement();
     this.updateHitboxFrames();
+
+    if (Phaser.Input.Keyboard.JustDown(this.spacebar)) {
+      this.isPaused = !this.isPaused; // Toggle the pause state
+    }
+    if (this.isPaused) {
+      return;
+    }
   }
 
   updateTimer(time) {
@@ -159,6 +172,9 @@ class MainScene extends Phaser.Scene {
 
   handleBootMovement() {
     const stopHeight = 600; // Point for the bottom of the boot to reach
+    if (this.isPaused) {
+      return; // Skip boot movement if the game is paused
+    }
 
     if (!this.bootPause && !this.retractingBoot) {
       this.boot.y += this.currentBootSpeed;
