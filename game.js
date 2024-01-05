@@ -11,7 +11,7 @@ class MainScene extends Phaser.Scene {
   preload() {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
-    this.load.image("boot", "assets/stFoot.png");
+    this.load.image("boot", "assets/Foot.png");
     this.load.image("toggleOn", "assets/radioOn.png");
     this.load.image("toggleOff", "assets/radioOff.png");
   }
@@ -171,7 +171,7 @@ class MainScene extends Phaser.Scene {
   }
 
   handleBootMovement() {
-    const stopHeight = 600; // Point for the bottom of the boot to reach
+    const stopHeight = 580; // Point for the bottom of the boot to reach
     if (this.isPaused) {
       return; // Skip boot movement if the game is paused
     }

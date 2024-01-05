@@ -1,0 +1,23 @@
+body {
+    margin: 0;
+    background-color: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+canvas {
+    display: block;
+    margin: auto;
+}
+
+.progress-banner {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: yellow;
+    padding: 10px;
+    z-index: 1000;
+}
