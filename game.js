@@ -7,6 +7,12 @@ class MainScene extends Phaser.Scene {
   getRandomStompTime(min, max) {
     return Phaser.Math.Between(min, max);
   }
+  setState(newState) {
+    if (this.bootState !== newState) {
+      console.log("State changed from", this.bootState, "to", newState);
+      this.bootState = newState;
+    }
+  }
 
   preload() {
     this.load.image("background", "assets/background.png");
@@ -182,9 +188,10 @@ class MainScene extends Phaser.Scene {
       time - this.lastStompTime > this.stompTime &&
       this.bootState === "hovering"
     ) {
-      this.bootState = "preparingToStomp";
+      this.setState("preparingToStomp");
       this.lastStompTime = time;
-      this.stompTime = this.getRandomStompTime(5000, 10000); // Set next random stomp time
+      this.stompTime = this.getRandomStompTime(5000, 10000);
+      console.log("Next stomp time set to:", this.stompTime);
     }
 
     if (!this.isPaused) {
@@ -264,23 +271,29 @@ class MainScene extends Phaser.Scene {
     this.boot.x += this.bootHoverSpeed;
     this.boot.y = this.bootHoverHeight; // Ensure the boot stays at the hover height
 
+    // Define the boot's boundaries
+    const leftBoundary = 0 + this.boot.displayWidth / 2;
+    const rightBoundary = 800 - this.boot.displayWidth / 2; // sidewalls 0 / 800
+
     // Change direction if it reaches the sides
-    if (this.boot.x < 50 || this.boot.x > 750) {
+    if (this.boot.x < leftBoundary || this.boot.x > rightBoundary) {
       this.bootHoverSpeed *= -1;
     }
   }
+
   prepareStomp(time) {
     if (!this.preStompStartTime) {
       this.preStompStartTime = time;
       this.originalBootX = this.boot.x; // Store the original X position
+      console.log("Entered Preparing to Stomp State");
     }
 
     // Vibration effect: Move boot slightly left and right
     let elapsed = time - this.preStompStartTime;
-    this.boot.x = this.originalBootX + Math.sin(elapsed / 50) * 5; // Adjust values for desired effect
+    this.boot.x = this.originalBootX + Math.sin(elapsed / 50) * 5;
 
-    // After 0.5 seconds, transition to stomping
-    if (elapsed > 500) {
+    // After 1 seconds, transition to stomping
+    if (elapsed > 1000) {
       this.bootState = "stomping";
       this.preStompStartTime = null; // Reset the start time for the next stomp
     }
@@ -296,20 +309,17 @@ class MainScene extends Phaser.Scene {
 
       // Delay the transition to retracting state
       this.time.delayedCall(200, () => {
-        this.bootState = "retracting";
+        this.setState("retracting");
       });
-
-      // Optionally, stop the boot's downward movement immediately
     }
   }
 
   retractBoot() {
     this.boot.setVelocityY(-this.bootRetractSpeed);
-    console.log("Retracting Boot. Boot Y: ", this.boot.y);
 
     // Check if the boot has retracted to the hover height
     if (this.boot.y <= this.bootHoverHeight) {
-      this.bootState = "hovering";
+      this.setState("hovering");
       this.boot.setPosition(this.boot.x, this.bootHoverHeight);
     }
   }
