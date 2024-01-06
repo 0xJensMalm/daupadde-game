@@ -1,60 +1,83 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super({ key: "MainScene" });
-    // Hitbox sizes
-    this.bootHitboxSizePercent = { width: 80, height: 101 };
-    this.frogHitboxSizePercent = { width: 94, height: 90 };
-    this.showHitboxes = true; // Toggle hitboxes
-    this.isPaused = false; // Toggle pause
+    this.isPaused = false;
+    this.bootState = "hovering"; // 'hovering', 'stomping', 'retracting'
+  }
+  getRandomStompTime(min, max) {
+    return Phaser.Math.Between(min, max);
+  }
+  setState(newState) {
+    if (this.bootState !== newState) {
+      console.log("State changed from", this.bootState, "to", newState);
+      this.bootState = newState;
+    }
   }
 
   preload() {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
     this.load.image("boot", "assets/Foot.png");
-    this.load.image("toggleOn", "assets/radioOn.png");
-    this.load.image("toggleOff", "assets/radioOff.png");
   }
 
   create() {
     this.timer = 0;
     this.level = "Warmup";
-    this.bootStompSpeed = 1;
+    this.bootHoverHeight = -300; // Height at which the boot hovers
+    this.bootHoverSpeed = 2; // Speed at which the boot hovers back and forth
+    this.stompTime = 5000; // Time in milliseconds after which to trigger the stomp
+    this.lastStompTime = 0; // Time since the last stomp
     this.bootRetractSpeed = 10;
-    this.accelerationRate = 0.15;
-    this.currentBootSpeed = this.bootStompSpeed;
-    this.bootPause = false;
-    this.retractingBoot = false;
+    this.stompTime = this.getRandomStompTime(5000, 10000); // Time between stomps, random between 5 and 10 seconds
 
     this.add.image(400, 300, "background");
-    this.frog = this.add.sprite(400, 600 * 0.85, "frog").setScale(0.2);
 
-    // Boot sprite setup
-    this.boot = this.add.sprite(400, 100, "boot").setScale(0.2);
-    this.physics.add.existing(this.boot);
-    this.bootHitboxWidth = (601 * this.bootHitboxSizePercent.width) / 100;
-    this.bootHitboxHeight = (2333 * this.bootHitboxSizePercent.height) / 100;
-    this.boot.body.setSize(this.bootHitboxWidth, this.bootHitboxHeight);
+    // Create a static ground
+    const ground = this.matter.add.rectangle(400, 590, 800, 20, {
+      isStatic: true,
+    });
 
-    // Enable physics for the boot and create a smaller active area for collision
-    this.physics.add.existing(this.boot);
-    this.physics.add.existing(this.frog);
+    // Create side walls
+    const wallThickness = 50; // Thickness of the walls
+    const gameHeight = this.sys.game.config.height; // Height of the game area
 
-    // Adjust the width and height to fit the active collision area of the boot
-    this.boot.body.setSize(100, 300); // Example values, adjust as needed
-    this.boot.body.setOffset(250, 2000); // Adjust the offset as needed
+    // Left wall
+    this.matter.add.rectangle(
+      -wallThickness / 2,
+      gameHeight / 2,
+      wallThickness,
+      gameHeight,
+      { isStatic: true }
+    );
 
-    // Hitboxes
-    this.setupHitboxes();
-    this.hitboxGraphics = this.add.graphics(); //hitbox toggles
-    this.showHitboxes = true; // Default value
+    // Right wall
+    const gameWidth = this.sys.game.config.width; // Width of the game area
+    this.matter.add.rectangle(
+      gameWidth + wallThickness / 2,
+      gameHeight / 2,
+      wallThickness,
+      gameHeight,
+      { isStatic: true }
+    );
+
+    // Create frog sprite
+    this.frog = this.matter.add.sprite(400, 200 * 0.85, "frog").setScale(0.2);
+    this.frogHitboxSizePercent = { width: 94, height: 90 }; // Define hitbox size percent for frog
+    this.createFrogBody();
+
+    // Create boot sprite
+    this.boot = this.matter.add
+      .sprite(400, this.bootHoverHeight, "boot")
+      .setScale(0.2);
+    this.bootHitboxSizePercent = { width: 80, height: 101 }; // Define hitbox size percent for boot
+    this.createBootBody();
 
     // Graphics for text background
     this.infoGraphics = this.add.graphics();
     this.infoGraphics.fillStyle(0x000000, 0.7); // Black with opacity
-    this.infoGraphics.fillRect(5, 5, 190, 90); // Adjust size and position as needed
+    this.infoGraphics.fillRect(5, 5, 190, 90); // Adjust size and position
     this.infoGraphics.lineStyle(1, 0xffffff, 1); // White thin line for border
-    this.infoGraphics.strokeRect(5, 5, 190, 90); // Adjust size and position as needed
+    this.infoGraphics.strokeRect(5, 5, 190, 90); // Adjust size and position
 
     // Style for the info text
     const infoTextStyle = {
@@ -76,38 +99,16 @@ class MainScene extends Phaser.Scene {
       infoTextStyle
     );
 
-    // Toggle hitboxes text
-    this.hitboxToggleText = this.add.text(
-      10,
-      60,
-      "Show hitboxes:",
-      infoTextStyle
-    );
-
-    // Scale for the toggle switch
-    const toggleScale = 0.1; // Adjust the scale as needed
-
-    // Create a container to hold the toggle and make it interactive
-    this.toggleContainer = this.add.container(170, 65); // Adjust for the position of the toggle
-
-    // Add the 'off' toggle image by default and scale it
-    this.toggleSwitch = this.add.image(0, 0, "toggleOff").setScale(toggleScale);
-    this.toggleContainer.add(this.toggleSwitch);
-
-    // Adjust the size of the container for interactions based on the scaled image size
-    this.toggleContainer.setSize(
-      this.toggleSwitch.displayWidth,
-      this.toggleSwitch.displayHeight
-    );
-    this.toggleContainer.setInteractive().on("pointerdown", () => {
-      this.showHitboxes = !this.showHitboxes;
-      this.toggleSwitch.setTexture(
-        this.showHitboxes ? "toggleOn" : "toggleOff"
-      );
-      // Clear the hitbox graphics if they should be hidden
-      if (!this.showHitboxes) {
-        this.hitboxGraphics.clear();
-      }
+    this.matter.world.on("collisionstart", (event) => {
+      event.pairs.forEach((pair) => {
+        if (
+          (pair.bodyA === this.frog.body && pair.bodyB === this.boot.body) ||
+          (pair.bodyA === this.boot.body && pair.bodyB === this.frog.body)
+        ) {
+          // Handle collision between frog and boot
+          console.log("Frog and boot collided!");
+        }
+      });
     });
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -118,17 +119,101 @@ class MainScene extends Phaser.Scene {
     );
   }
 
+  createFrogBody() {
+    // Wait for next tick to ensure sprite dimensions are available
+    this.time.delayedCall(0, () => {
+      const frogWidth =
+        (this.frog.displayWidth * this.frogHitboxSizePercent.width) / 100;
+      const frogHeight =
+        (this.frog.displayHeight * this.frogHitboxSizePercent.height) / 100;
+
+      const frogBody = Phaser.Physics.Matter.Matter.Bodies.rectangle(
+        this.frog.x,
+        this.frog.y,
+        frogWidth,
+        frogHeight,
+        { chamfer: { radius: 10 } }
+      );
+      this.frog.setExistingBody(frogBody);
+    });
+  }
+
+  createBootBody() {
+    // Wait for next tick to ensure sprite dimensions are available
+    this.time.delayedCall(0, () => {
+      const bootWidth =
+        (this.boot.displayWidth * this.bootHitboxSizePercent.width) / 100;
+      const bootHeight =
+        (this.boot.displayHeight * this.bootHitboxSizePercent.height) / 100;
+
+      const bootBody = Phaser.Physics.Matter.Matter.Bodies.rectangle(
+        this.boot.x,
+        this.bootHoverHeight,
+        bootWidth,
+        bootHeight,
+        { chamfer: { radius: 10 }, isStatic: false, inertia: Infinity }
+      );
+      this.boot.setExistingBody(bootBody);
+      this.boot.y = -this.boot.displayHeight; // Set initial Y position above the screen
+      this.bootState = "hovering"; // Set initial state to hovering
+    });
+  }
+
+  drawMatterHitbox(gameObject, color) {
+    if (!gameObject.body) return;
+
+    const { vertices } = gameObject.body;
+    this.hitboxGraphics.lineStyle(2, color, 1);
+    this.hitboxGraphics.beginPath();
+    this.hitboxGraphics.moveTo(vertices[0].x, vertices[0].y);
+
+    for (let i = 1; i < vertices.length; i++) {
+      this.hitboxGraphics.lineTo(vertices[i].x, vertices[i].y);
+    }
+
+    this.hitboxGraphics.closePath();
+    this.hitboxGraphics.strokePath();
+  }
+
   update(time, delta) {
     this.updateTimer(time);
-    this.handleBootMovement();
     this.handlePlayerMovement();
-    this.updateHitboxFrames();
 
-    if (Phaser.Input.Keyboard.JustDown(this.spacebar)) {
-      this.isPaused = !this.isPaused; // Toggle the pause state
+    // Keep the frog upright and at a fixed y position
+    this.frog.setAngle(0);
+    this.frog.setPosition(this.frog.x, 600 * 0.85);
+
+    // Check if it's time to start preparing to stomp
+    if (
+      time - this.lastStompTime > this.stompTime &&
+      this.bootState === "hovering"
+    ) {
+      this.setState("preparingToStomp");
+      this.lastStompTime = time;
+      this.stompTime = this.getRandomStompTime(5000, 10000);
+      console.log("Next stomp time set to:", this.stompTime);
     }
-    if (this.isPaused) {
-      return;
+
+    if (!this.isPaused) {
+      switch (this.bootState) {
+        case "hovering":
+          this.hoverBoot();
+          break;
+        case "preparingToStomp":
+          this.prepareStomp(time);
+          break;
+        case "stomping":
+          this.performStomp();
+          break;
+        case "retracting":
+          this.retractBoot();
+          break;
+      }
+    }
+
+    // Toggle pause state with the spacebar
+    if (Phaser.Input.Keyboard.JustDown(this.spacebar)) {
+      this.isPaused = !this.isPaused;
     }
   }
 
@@ -143,110 +228,130 @@ class MainScene extends Phaser.Scene {
   updateLevel() {
     if (this.timer < 20) {
       this.level = "Warmup";
+      // Adjust boot behavior for Warmup level
+      this.bootStompSpeed = 8;
+      this.bootHoverSpeed = 2;
     } else if (this.timer < 60) {
       this.level = "Level 1";
+      // Adjust boot behavior for Level 1
+      this.bootStompSpeed = 10;
+      this.bootHoverSpeed = 3;
     } else if (this.timer < 90) {
       this.level = "Level 2";
+      // Adjust boot behavior for Level 2
+      this.bootStompSpeed = 12;
+      this.bootHoverSpeed = 4;
     }
     this.levelText.setText("Level: " + this.level);
   }
-  updateHitboxFrames() {
-    this.hitboxGraphics.clear();
-    // Only draw hitboxes if showHitboxes is true
-    if (this.showHitboxes) {
-      this.drawHitboxFrame(this.boot, 0x00ff00);
-      this.drawHitboxFrame(this.frog, 0x00ff00);
-    }
-  }
 
-  drawHitboxFrame(sprite, color) {
-    const hitbox = sprite.body;
-    this.hitboxGraphics.lineStyle(2, color, 1);
-    this.hitboxGraphics.strokeRect(
-      sprite.x - sprite.originX * hitbox.width,
-      sprite.y - sprite.originY * hitbox.height,
-      hitbox.width,
-      hitbox.height
-    );
-  }
-
-  handleBootMovement() {
-    const stopHeight = 580; // Point for the bottom of the boot to reach
+  handleBootMovement(time, delta) {
     if (this.isPaused) {
-      return; // Skip boot movement if the game is paused
+      return;
     }
 
+    // Hover movement
     if (!this.bootPause && !this.retractingBoot) {
-      this.boot.y += this.currentBootSpeed;
-      this.currentBootSpeed += this.accelerationRate;
+      this.hoverBoot();
+    }
 
-      // Check if the bottom of the boot has reached the stopHeight
-      if (this.boot.y + this.boot.displayHeight / 2 >= stopHeight) {
-        this.bootPause = true;
-        this.time.delayedCall(1000, () => {
-          this.retractingBoot = true;
-          this.bootPause = false;
-        });
-      }
-    } else if (this.retractingBoot) {
-      this.boot.y -= this.bootRetractSpeed;
-      if (this.boot.y <= -this.boot.displayHeight / 2) {
-        this.resetBoot();
-      }
+    // Check if it's time to stomp
+    if (time - this.lastStompTime > this.stompTime && !this.retractingBoot) {
+      this.performStomp();
+    }
+
+    // Retract the boot
+    if (this.retractingBoot) {
+      this.retractBoot();
     }
   }
 
-  resetBoot() {
+  hoverBoot() {
+    // Move the boot back and forth at the top
+    this.boot.x += this.bootHoverSpeed;
+    this.boot.y = this.bootHoverHeight; // Ensure the boot stays at the hover height
+
+    // Define the boot's boundaries
+    const leftBoundary = 0 + this.boot.displayWidth / 2;
+    const rightBoundary = 800 - this.boot.displayWidth / 2; // sidewalls 0 / 800
+
+    // Change direction if it reaches the sides
+    if (this.boot.x < leftBoundary || this.boot.x > rightBoundary) {
+      this.bootHoverSpeed *= -1;
+    }
+  }
+
+  prepareStomp(time) {
+    if (!this.preStompStartTime) {
+      this.preStompStartTime = time;
+      this.originalBootX = this.boot.x; // Store the original X position
+      console.log("Entered Preparing to Stomp State");
+    }
+
+    // Vibration effect: Move boot slightly left and right
+    let elapsed = time - this.preStompStartTime;
+    this.boot.x = this.originalBootX + Math.sin(elapsed / 50) * 5;
+
+    // After 1 seconds, transition to stomping
+    if (elapsed > 1000) {
+      this.bootState = "stomping";
+      this.preStompStartTime = null; // Reset the start time for the next stomp
+    }
+  }
+
+  performStomp() {
+    this.bootStompSpeed = 10; // Adjust for faster stomping
+    this.boot.setVelocityY(this.bootStompSpeed);
+
+    if (this.boot.y + this.boot.displayHeight / 2 >= 550) {
+      // Shake the camera when the boot hits the ground
+      this.cameras.main.shake(250, 0.005); // Duration in ms, intensity of the shake
+
+      // Delay the transition to retracting state
+      this.time.delayedCall(200, () => {
+        this.setState("retracting");
+      });
+    }
+  }
+
+  retractBoot() {
+    this.boot.setVelocityY(-this.bootRetractSpeed);
+
+    // Check if the boot has retracted to the hover height
+    if (this.boot.y <= this.bootHoverHeight) {
+      this.setState("hovering");
+      this.boot.setPosition(this.boot.x, this.bootHoverHeight);
+    }
+  }
+
+  resetStomp() {
+    // Reset stomp variables
     this.retractingBoot = false;
-    this.boot.y = -100;
-    this.boot.x = Phaser.Math.Between(100, 700);
+    this.lastStompTime = this.time.now; // Reset the timer
+    this.boot.setPosition(this.boot.x, this.bootHoverHeight); // Reset boot position
     this.currentBootSpeed = this.bootStompSpeed;
   }
 
-  updateBootHitbox() {
-    // Calculate the new hitbox size based on the sprite's display size (which includes scaling)
-    let bootHitboxWidth =
-      (this.boot.displayWidth * this.bootHitboxSizePercent.width) / 100;
-    let bootHitboxHeight =
-      (this.boot.displayHeight * this.bootHitboxSizePercent.height) / 100;
-
-    // Update the boot's hitbox size
-    this.boot.body.setSize(bootHitboxWidth, bootHitboxHeight);
-
-    // Calculate and set the new offset from the center of the sprite
-    // This assumes the sprite's origin is set to 0.5 (center)
-    let offsetX = (this.boot.width - bootHitboxWidth) / 2;
-    let offsetY = (this.boot.height - bootHitboxHeight) / 2;
-    this.boot.body.setOffset(offsetX, offsetY);
-  }
-
   handlePlayerMovement() {
+    if (!this.frog || !this.frog.body) return; // Ensure frog and its body are defined
+
+    const forceMagnitude = 0.065; // Adjust the force magnitude as needed
+
     if (this.cursors.left.isDown) {
-      this.frog.x -= 5;
+      Phaser.Physics.Matter.Matter.Body.applyForce(
+        this.frog.body,
+        this.frog.body.position,
+        { x: -forceMagnitude, y: 0 }
+      );
       this.frog.setScale(-0.2, 0.2);
     } else if (this.cursors.right.isDown) {
-      this.frog.x += 5;
+      Phaser.Physics.Matter.Matter.Body.applyForce(
+        this.frog.body,
+        this.frog.body.position,
+        { x: forceMagnitude, y: 0 }
+      );
       this.frog.setScale(0.2, 0.2);
     }
-    this.frog.x = Phaser.Math.Clamp(this.frog.x, 0, 800);
-  }
-
-  setupHitboxes() {
-    // Boot hitbox setup
-    let bootHitboxWidth =
-      (this.boot.width * this.bootHitboxSizePercent.width) / 100;
-    let bootHitboxHeight =
-      (this.boot.height * this.bootHitboxSizePercent.height) / 100;
-    this.boot.body.setSize(bootHitboxWidth, bootHitboxHeight);
-    // Adjust offset if needed
-
-    // Frog hitbox setup
-    let frogHitboxWidth =
-      (this.frog.width * this.frogHitboxSizePercent.width) / 100;
-    let frogHitboxHeight =
-      (this.frog.height * this.frogHitboxSizePercent.height) / 100;
-    this.frog.body.setSize(frogHitboxWidth, frogHitboxHeight);
-    // Adjust offset if needed
   }
 }
 
@@ -255,10 +360,9 @@ const config = {
   width: 800,
   height: 600,
   physics: {
-    default: "arcade",
-    arcade: {
-      gravity: { y: 0 },
-      debug: false,
+    default: "matter",
+    matter: {
+      debug: true, // Set to false to disable visual debugging
     },
   },
   scene: [MainScene],
