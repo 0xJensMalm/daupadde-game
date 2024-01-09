@@ -18,6 +18,9 @@ class MainScene extends Phaser.Scene {
     this.load.image("background", "assets/background.png");
     this.load.image("frog", "assets/padde.png");
     this.load.image("boot", "assets/Foot.png");
+    for (let i = 1; i <= 8; i++) {
+      this.load.image("run" + i, "assets/run/" + i + ".png"); // Adjusted path
+    }
   }
 
   create() {
@@ -61,7 +64,7 @@ class MainScene extends Phaser.Scene {
     );
 
     // Create frog sprite
-    this.frog = this.matter.add.sprite(400, 200 * 0.85, "frog").setScale(0.2);
+    this.frog = this.matter.add.sprite(400, 200 * 0.85, "frog").setScale(0.35);
     this.frogHitboxSizePercent = { width: 94, height: 90 }; // Define hitbox size percent for frog
     this.createFrogBody();
 
@@ -71,6 +74,22 @@ class MainScene extends Phaser.Scene {
       .setScale(0.2);
     this.bootHitboxSizePercent = { width: 80, height: 101 }; // Define hitbox size percent for boot
     this.createBootBody();
+
+    this.anims.create({
+      key: "running",
+      frames: [
+        { key: "run1" },
+        { key: "run2" },
+        { key: "run3" },
+        { key: "run4" },
+        { key: "run5" },
+        { key: "run6" },
+        { key: "run7" },
+        { key: "run8" },
+      ],
+      frameRate: 15, // Adjust frame rate as needed
+      repeat: -1, // Loop forever
+    });
 
     // Graphics for text background
     this.infoGraphics = this.add.graphics();
@@ -123,9 +142,9 @@ class MainScene extends Phaser.Scene {
     // Wait for next tick to ensure sprite dimensions are available
     this.time.delayedCall(0, () => {
       const frogWidth =
-        (this.frog.displayWidth * this.frogHitboxSizePercent.width) / 100;
+        (this.frog.displayWidth * this.frogHitboxSizePercent.width) / 400;
       const frogHeight =
-        (this.frog.displayHeight * this.frogHitboxSizePercent.height) / 100;
+        (this.frog.displayHeight * this.frogHitboxSizePercent.height) / 160;
 
       const frogBody = Phaser.Physics.Matter.Matter.Bodies.rectangle(
         this.frog.x,
@@ -136,6 +155,8 @@ class MainScene extends Phaser.Scene {
       );
       this.frog.setExistingBody(frogBody);
     });
+    this.frog.setFriction(0.9); // Higher friction for less sliding
+    this.frog.setFrictionAir(0.1); // Air friction to slow down more quickly when not moving
   }
 
   createBootBody() {
@@ -181,7 +202,7 @@ class MainScene extends Phaser.Scene {
 
     // Keep the frog upright and at a fixed y position
     this.frog.setAngle(0);
-    this.frog.setPosition(this.frog.x, 600 * 0.85);
+    this.frog.setPosition(this.frog.x, 550 * 0.85);
 
     // Check if it's time to start preparing to stomp
     if (
@@ -335,7 +356,7 @@ class MainScene extends Phaser.Scene {
   handlePlayerMovement() {
     if (!this.frog || !this.frog.body) return; // Ensure frog and its body are defined
 
-    const forceMagnitude = 0.065; // Adjust the force magnitude as needed
+    const forceMagnitude = 0.005; // Adjust the force magnitude as needed
 
     if (this.cursors.left.isDown) {
       Phaser.Physics.Matter.Matter.Body.applyForce(
@@ -343,14 +364,20 @@ class MainScene extends Phaser.Scene {
         this.frog.body.position,
         { x: -forceMagnitude, y: 0 }
       );
-      this.frog.setScale(-0.2, 0.2);
+      this.frog.setScale(-0.35, 0.35);
+      this.frog.anims.play("running", true);
     } else if (this.cursors.right.isDown) {
       Phaser.Physics.Matter.Matter.Body.applyForce(
         this.frog.body,
         this.frog.body.position,
         { x: forceMagnitude, y: 0 }
       );
-      this.frog.setScale(0.2, 0.2);
+      this.frog.setScale(0.35, 0.35);
+      this.frog.anims.play("running", true);
+    } else {
+      this.frog.anims.stop();
+      this.frog.setTexture("run8"); // Set to idle image when not moving
+      this.frog.setVelocity(0);
     }
   }
 }
